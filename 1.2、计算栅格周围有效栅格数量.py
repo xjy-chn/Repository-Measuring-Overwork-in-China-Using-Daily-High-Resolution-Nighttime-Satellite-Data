@@ -129,11 +129,11 @@ def cal_median(year, annual_type):
         save(data=median_value, block=key, year=year, description=description)
 
 
-def save_surrounding_median(data, year, day, description):
+def save_surrounding_valid(data, year, day, description):
     # print(filename)
-    if not os.path.exists(f'./result/surrounding_median/{year}'):
-        os.makedirs(f'./result/surrounding_median/{year}')
-    with h5py.File(f'./result/surrounding_median/{year}' + '/' + day + '.h5', "w") as f:
+    if not os.path.exists(f'./result/surrounding_valid/{year}'):
+        os.makedirs(f'./result/surrounding_valid/{year}')
+    with h5py.File(f'./result/surrounding_valid/{year}' + '/' + day + '.h5', "w") as f:
         f.create_group('imformation')
         f.create_group('data')
         f['data'].create_dataset(name=day, data=data)
@@ -145,7 +145,7 @@ def cal_surrounding_median_dummy():
         day = key[-3:]
         year = key[2:6]
         st = time.time()
-        if not os.path.isfile(f'./result/surrounding_median/{year}' + '/' + day + '.h5'):
+        if not os.path.isfile(f'./result/surrounding_valid/{year}' + '/' + day + '.h5'):
             st = time.time()
             ntl = -np.ones((5 * 2400, 7 * 2400), dtype=np.uint16)
             # print('ntl', ntl)
@@ -160,47 +160,18 @@ def cal_surrounding_median_dummy():
             # print(padded_ntl.strides)
             # print(padded_ntl.shape)
             surrounding_median = ntl
-
             view = np.lib.stride_tricks.as_strided(padded_ntl, shape=(12000, 16800, 3, 3), strides=(33604, 2, 33604, 2))
             # center = view[:, :, 1, 1]
             # # print(center.shape)
             view = view.reshape((12000, 16800, 9))
             fill = -np.ones((12000, 16800), dtype=np.uint16)
             view[:, :, 5] = fill
-            # print(view)
-            mask = np.isin(view, values_to_exclude)
-            # print(mask)
-
-
-
-            median_values = ma.array(ma.median(ma.array(view, mask=mask), axis=2),fill_value=65535)
-
-            # 检查用：人工检查计算的值事正确的
-            # print(median_values.shape,ntl.shape)
-            # print(median_values[5000,5000])
-            # print(ntl[4999:5002,4999:5002])
-            median_values.astype(np.uint32)
-            # print(median_values)
-
-            median_values = median_values+ 1
-
-            median_values = np.where(median_values == -1, 65535, median_values)
-
-            median_values = np.where(median_values == 0, np.nan, median_values)
-            median_values = median_values - 1
-
-            median_values = np.where(median_values == np.nan, 65535, median_values).astype(np.uint16)
-
-
-            dummy_surrounding_median = ntl - median_values > 0
-            dummy_surrounding_median = dummy_surrounding_median.astype(np.uint8)
-            # print(dummy_surrounding_median)
-            # print(np.max(median_values))
-            # print(np.min(median_values))
-            # print(ntl[-4:-1,-4:-1])
-            #忽略了一种情况需要补充：本栅格不缺失，但周围八个栅格都缺失
-            #补充计算：栅格层面周边的不缺失栅格数量和laoge周围栅格中的企业数量
-            save_surrounding_median(data=dummy_surrounding_median, year=year, day=day, description=f"这是全国{year}年度{day}天的数据")
+            invalid=np.count_nonzero(view==65535,axis=2)
+            print(invalid.shape)
+            valid=9-invalid
+            valid=valid.astype(np.uint8)
+            print(np.max(valid))
+            save_surrounding_valid(data=valid, year=year, day=day, description=f"这是全国{year}年度{day}天的数据")
             median_values=None
             dummy_surrounding_median=None
             mask=None
