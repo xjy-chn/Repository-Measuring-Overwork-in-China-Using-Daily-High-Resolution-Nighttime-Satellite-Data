@@ -132,7 +132,6 @@ if __name__ == "__main__":
             condition2 = data > 0
             missing = np.count_nonzero(data == 65535, axis=0)
             no_missing = len(works) - missing
-            no_missing=no_missing.astype(np.uint8)
             overwork_days = np.count_nonzero(condition1 & condition2, axis=0)
 
             # print(np.mean(no_missing))
@@ -140,19 +139,27 @@ if __name__ == "__main__":
             # time.sleep(3)
             intensity = ma.median(ma.array(data, mask=mask), axis=0)
             ratio = overwork_days / no_missing
+            #导入缺失天数情况
+            with h5py.File(f'result/overwork_nomissing/{year}/works/{block}.h5') as f:
+                works_no_missing=f['data'][block][:]
+            with h5py.File(f'result/overwork_nomissing/{year}/holidays/{block}.h5') as f:
+                holidays_no_missing = f['data'][block][:]
 
             # 增加导出非工作日no_missing数据的代码
             ratio = np.round(ratio, decimals=2)
+
             ratio = (100 * ratio).astype(np.uint16)
             ratio = np.where(no_missing == 0, 65535, ratio)
+            ratio=np.where(works_no_missing <70, 65535, ratio)
+            ratio=np.where(holidays_no_missing <5, 65535, ratio)
             # print(ra)
 
             save_annual_overwork(data=ratio, year=year,
                                  description=f"{year}年{block}块的年度加班天数占比,数值四舍五入后放大了100倍",
                                  block=block, type="ratio")
-            save_no_missing(data=no_missing, year=year,
-                                 description=f"{year}年{block}块的年度原始数据未缺失天数",
-                                 block=block)
+            # save_no_missing(data=no_missing, year=year,
+            #                      description=f"{year}年{block}块的年度原始数据未缺失天数",
+            #                      block=block)
 
             # print(np.max(data))
 
@@ -160,9 +167,17 @@ if __name__ == "__main__":
             # ave_intensity=intensity/overwork_days
             # ave_intensity=np.where(no_missing==0,65535,ave_intensity)
             # print(ave_intensity)
-            intensity = np.round(10 * intensity)
             intensity = intensity.astype(np.uint32)
-            intensity = np.where(no_missing == 0, 65535, intensity)
+            print(np.max(intensity))
+            print(np.count_nonzero(intensity==65534))
+            print(np.count_nonzero(data == 65534))
+            print(np.count_nonzero(data == 65535))
+            print(data.shape)
+            intensity = np.round(10 * intensity)
+            time.sleep(1000)
+            intensity = np.where(no_missing == 0, 655350, intensity)
+            intensity = np.where(no_missing == 0, 655350, intensity)
+            intensity = np.where(no_missing == 0, 655350, intensity)
             save_annual_overwork(data=intensity, year=year,
                                  description=f"{year}年{block}块的年度加班超过节假日灯光强度的中位数,数值四舍五入后放大了100倍",
                                  block=block, type="intensity")

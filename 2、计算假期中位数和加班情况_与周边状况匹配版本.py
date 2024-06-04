@@ -205,6 +205,13 @@ if __name__ == "__main__":
                 print(fp)
                 daily_raw = merge_daily_raw_blocks(fp)
                 dif = daily_raw - national_annual_median_holiday_ntl
+                dif=np.where(daily_raw <national_annual_median_holiday_ntl,0,dif)
+                print(np.count_nonzero(daily_raw==65534))
+                print(np.count_nonzero(national_annual_median_holiday_ntl == 1))
+                print(np.count_nonzero(dif == 65534))
+                print(np.count_nonzero(national_annual_median_holiday_ntl == 65534))
+
+
                 # 导入判断是否加班的第二个条件：本栅格亮度是否高于周围八个栅格的中位数
                 surrounding_fp = f'./result/surrounding_median/{year}/{date}.h5'
                 valid_fp=f'./result/surrounding_valid/{year}/{date}.h5'
@@ -217,19 +224,30 @@ if __name__ == "__main__":
                     dataset = file['data'][date]
                     sur_valid = np.array(dataset)
 
-                print(sur_median.shape, dif.shape)
+                # print(sur_median.shape, dif.shape)
                 # 缺失值标记
 
                 overwork_intensity = dif * sur_median
+
                 condition1 = overwork_intensity > 0
                 condition2 = overwork_intensity != 65535
                 overwork_intensity = np.where(overwork_intensity < 0, 0, overwork_intensity)
+
                 #原始数据缺失的
                 overwork_intensity = np.where(daily_raw == 65535, 65535, overwork_intensity)
                 overwork_intensity = np.where(national_annual_median_holiday_ntl == 65535, 65535, overwork_intensity)
                 #周边栅格有效数量大于3
                 overwork_intensity=np.where(sur_valid<3,65535,overwork_intensity)
+                t=np.where(overwork_intensity==65535,1,overwork_intensity)
+                x,y=np.where(t>=65534)
+                print(daily_raw[0,1])
+                print(len(x))
+                time.sleep(5)
+                for i in range(len(x)):
+                    print(daily_raw[x[i],y[i]],national_annual_median_holiday_ntl[x[i],y[i]],dif[x[i],y[i]])
+                    time.sleep(1)
                 overwork_dummy = np.where(condition1 & condition2, 1, overwork_intensity)
+
                 # 检查缺失值是否复原
                 # print(np.max(overwork_dummy),np.min(overwork_dummy))
                 # time.sleep(100)

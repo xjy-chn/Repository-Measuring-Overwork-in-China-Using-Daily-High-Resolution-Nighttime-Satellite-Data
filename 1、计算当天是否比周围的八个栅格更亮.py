@@ -139,8 +139,9 @@ def save_surrounding_median(data, year, day, description):
         f['data'].create_dataset(name=day, data=data)
         f['imformation'].create_dataset(name='基本信息', data=description)
 
+
 def cal_surrounding_median_dummy():
-    end=0
+    end = 0
     for key, value in daily_files.items():
         day = key[-3:]
         year = key[2:6]
@@ -171,9 +172,7 @@ def cal_surrounding_median_dummy():
             mask = np.isin(view, values_to_exclude)
             # print(mask)
 
-
-
-            median_values = ma.array(ma.median(ma.array(view, mask=mask), axis=2),fill_value=65535)
+            median_values = ma.array(ma.median(ma.array(view, mask=mask), axis=2), fill_value=65535)
 
             # 检查用：人工检查计算的值事正确的
             # print(median_values.shape,ntl.shape)
@@ -182,44 +181,47 @@ def cal_surrounding_median_dummy():
             median_values.astype(np.uint32)
             # print(median_values)
 
-            median_values = median_values+ 1
+            median_values = median_values + 1
+
 
             median_values = np.where(median_values == -1, 65535, median_values)
-
             median_values = np.where(median_values == 0, np.nan, median_values)
             median_values = median_values - 1
 
             median_values = np.where(median_values == np.nan, 65535, median_values).astype(np.uint16)
 
 
-            dummy_surrounding_median = ntl - median_values > 0
+            dummy_surrounding_median = ntl > median_values
             dummy_surrounding_median = dummy_surrounding_median.astype(np.uint8)
             # print(dummy_surrounding_median)
             # print(np.max(median_values))
             # print(np.min(median_values))
             # print(ntl[-4:-1,-4:-1])
-            #忽略了一种情况需要补充：本栅格不缺失，但周围八个栅格都缺失
-            #补充计算：栅格层面周边的不缺失栅格数量和laoge周围栅格中的企业数量
-            save_surrounding_median(data=dummy_surrounding_median, year=year, day=day, description=f"这是全国{year}年度{day}天的数据")
-            median_values=None
-            dummy_surrounding_median=None
-            mask=None
-            view=None
-            fill=None
-            padded_ntl=None
-            data=None
-            ntl=None
+            # 忽略了一种情况需要补充：本栅格不缺失，但周围八个栅格都缺失
+            # 补充计算：栅格层面周边的不缺失栅格数量和laoge周围栅格中的企业数量
+            save_surrounding_median(data=dummy_surrounding_median, year=year, day=day,
+                                    description=f"这是全国{year}年度{day}天的数据")
+            median_values = None
+            dummy_surrounding_median = None
+            mask = None
+            view = None
+            fill = None
+            padded_ntl = None
+            data = None
+            ntl = None
         print(f"这是全国{year}年度{day}天的数据保存完毕")
-        end+=time.time()-st
-        print("用时：",end)
+        end += time.time() - st
+        print("用时：", end)
+
+
 if __name__ == "__main__":
     values_to_exclude = [65535]
     # for year in range(2012,2025):
     #     if year not in [2012,2022,2024]:
-    for year in range(2012,2013):
-            day_dirs = search_day_dirs(year)
-            files = [search_h5_files(path) for path in day_dirs]
-            daily_files = dict(zip(day_dirs, files))
-            print(daily_files)
-            print(daily_files.keys())
-            cal_surrounding_median_dummy()
+    for year in range(2012, 2021):
+        day_dirs = search_day_dirs(year)
+        files = [search_h5_files(path) for path in day_dirs]
+        daily_files = dict(zip(day_dirs, files))
+        print(daily_files)
+        print(daily_files.keys())
+        cal_surrounding_median_dummy()
