@@ -167,32 +167,48 @@ def cal_surrounding_median_dummy():
             # # print(center.shape)
             view = view.reshape((12000, 16800, 9))
             fill = -np.ones((12000, 16800), dtype=np.uint16)
-            view[:, :, 5] = fill
+            view[:, :, 4] = fill
+            # if not os.path.exists("./测试/cp中位数/cpm"):
+            #     os.makedirs("./测试/cp中位数/cpm")
+            # with h5py.File(f"./测试/cp中位数/npview.h5", 'w') as f:
+            #     f.create_group('data')
+            #     f['data'].create_dataset(name="data", data=view)
             # print(view)
             mask = np.isin(view, values_to_exclude)
             # print(mask)
 
-            median_values = ma.array(ma.median(ma.array(view, mask=mask), axis=2), fill_value=65535)
-
+            median_values = ma.array(ma.median(ma.array(view, mask=mask), axis=2))
+            median_values=np.where(np.count_nonzero(view==65535,axis=2)==9,65535,median_values)
+            # print(median_values)
+            # if not os.path.exists("./测试/cp中位数"):
+            #     os.makedirs("./测试/cp中位数")
+            # with h5py.File(f"./测试/cp中位数/m_{day}.h5",'w') as f:
+            #     f.create_group('data')
+            #     f['data'].create_dataset(name=day, data=median_values)
             # 检查用：人工检查计算的值事正确的
             # print(median_values.shape,ntl.shape)
             # print(median_values[5000,5000])
             # print(ntl[4999:5002,4999:5002])
-            median_values.astype(np.uint32)
+            # median_values.astype(np.uint32)
             # print(median_values)
 
-            median_values = median_values + 1
+            # median_values = median_values + 1
 
 
-            median_values = np.where(median_values == -1, 65535, median_values)
-            median_values = np.where(median_values == 0, np.nan, median_values)
-            median_values = median_values - 1
+            # median_values = np.where(median_values == -1, 65535, median_values)
+            #
+            # median_values = np.where(median_values == 0, np.nan, median_values)
+            # median_values = median_values - 1
+            # np.nan_to_num(median_values,copy=False,nan=65535)
 
-            median_values = np.where(median_values == np.nan, 65535, median_values).astype(np.uint16)
 
 
             dummy_surrounding_median = ntl > median_values
             dummy_surrounding_median = dummy_surrounding_median.astype(np.uint8)
+            dummy_surrounding_median=np.where(median_values==65535,2,dummy_surrounding_median).astype(np.uint8)
+            dummy_surrounding_median = np.where(ntl == 65535, 2, dummy_surrounding_median).astype(np.uint8)
+            print(np.max(dummy_surrounding_median))
+            time.sleep(100)
             # print(dummy_surrounding_median)
             # print(np.max(median_values))
             # print(np.min(median_values))
@@ -218,7 +234,7 @@ if __name__ == "__main__":
     values_to_exclude = [65535]
     # for year in range(2012,2025):
     #     if year not in [2012,2022,2024]:
-    for year in range(2012, 2021):
+    for year in range(2013, 2014):
         day_dirs = search_day_dirs(year)
         files = [search_h5_files(path) for path in day_dirs]
         daily_files = dict(zip(day_dirs, files))

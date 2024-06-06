@@ -129,67 +129,112 @@ def cal_median(year, annual_type):
         save(data=median_value, block=key, year=year, description=description)
 
 
-def save_surrounding_valid(data, year, day, description):
+def save_surrounding_median(data, year, day, block,description):
     # print(filename)
-    if not os.path.exists(f'./result/surrounding_valid/{year}'):
-        os.makedirs(f'./result/surrounding_valid/{year}')
-    with h5py.File(f'./result/surrounding_valid/{year}' + '/' + day + '.h5', "w") as f:
+    if not os.path.exists(f'./result/surrounding_median/{year}/{day}'):
+        os.makedirs(f'./result/surrounding_median/{year}/{day}')
+    with h5py.File(f'./result/surrounding_median/{year}/{day}' + '/' + block + '.h5', "w") as f:
         f.create_group('imformation')
         f.create_group('data')
-        print(data.dtype)
-        f['data'].create_dataset(name=day, data=data)
+        f['data'].create_dataset(name=block, data=data)
         f['imformation'].create_dataset(name='基本信息', data=description)
 
+
 def cal_surrounding_median_dummy():
-    end=0
+    end = 0
     for key, value in daily_files.items():
         day = key[-3:]
         year = key[2:6]
         st = time.time()
-        if not os.path.isfile(f'./result/surrounding_valid/{year}' + '/' + day + '.h5'):
-            st = time.time()
-            ntl = -cp.ones((5 * 2400, 7 * 2400), dtype=cp.uint16)
-            # print('ntl', ntl)
-            for block in value:
-                h = int(block[18:20])
-                v = int(block[21:23])
-                # print(key + '/' + block)
-                data = cp.array(read_raw_h5(key + '/' + block),dtype=cp.uint16)
-                ntl[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)] = data
-            # print(ntl.shape)
-            padded_ntl = cp.pad(ntl, ((1, 1), (1, 1)), 'constant', constant_values=(65535, 65535))
-            # print(padded_ntl.strides)
-            # print(padded_ntl.shape)
-            surrounding_median = ntl
-            view = cp.lib.stride_tricks.as_strided(padded_ntl, shape=(12000, 16800, 3, 3), strides=(33604, 2, 33604, 2))
-            # center = view[:, :, 1, 1]
-            # # print(center.shape)
-            view = view.reshape((12000, 16800, 9))
-            fill = -cp.ones((12000, 16800), dtype=cp.uint16)
-            view[:, :, 4] = fill
-            invalid=cp.count_nonzero(view==65535,axis=2)
-            print(invalid.shape)
-            valid=9-invalid
-            valid=valid.astype(cp.uint8)
-            print(cp.max(valid))
+        ntl = -cp.ones((5 * 2400, 7 * 2400), dtype=cp.uint16)
+        for block in value:
+            h = int(block[18:20])
+            v = int(block[21:23])
+            data = read_raw_h5(key + '/' + block)
+            ntl[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)] = data
+        data = None
+        padded_ntl = cp.pad(ntl, ((1, 1), (1, 1)), 'constant', constant_values=(65535, 65535))
+        view = cp.lib.stride_tricks.as_strided(padded_ntl, shape=(12000, 16800, 3, 3), strides=(33604, 2, 33604, 2))
+        padded_ntl = None
+        view = view.reshape((12000, 16800, 9))
+        view2 = cp.zeros((12000, 16800, 8), dtype=cp.uint16)
+        view2[:, :, 0:4] = view[:, :, 0:4]
+        view2[:, :, 4:8] = view[:, :, 5:9]
+        # if not os.path.exists("./测试/cp中位数/cpm"):
+        #     os.makedirs("./测试/cp中位数/cpm")
+        # with h5py.File(f"./测试/cp中位数/cpview2.h5", 'w') as f:
+        #     f.create_group('data')
+        #     f['data'].create_dataset(name="data", data=view2.get())
+        # print("已保存")
+        print(np.count_nonzero(view2==65535)+np.count_nonzero(view2==0))
+        view = None
+        array = -cp.ones((12000, 16800, 16), dtype=cp.uint16)
+        view3 = cp.where(view2 == 65535, 0, view2)
+        print(np.count_nonzero(view3==0))
+        array[:, :, 0:8] = view2
+        array[:, :, 8:16] = view3
 
-            save_surrounding_valid(data=valid.get().astype(np.uint8), year=year, day=day, description=f"这是全国{year}年度{day}天的数据")
-            median_values=None
-            dummy_surrounding_median=None
-            mask=None
-            view=None
-            fill=None
-            padded_ntl=None
-            data=None
-            ntl=None
+        view2 = None
+        view3 = None
+        for block in blocks:
+            if not os.path.isfile(f'./result/surrounding_median/{year}/{day}' + '/' + block + '.h5'):
+                h = int(block[1:3])
+                v = int(block[4:6])
+                # print(h,v)
+                array1 = array[2400 * (v-3):2400 * (v -2),2400 * (h-25):2400 * (h-24), :]
+                # print(array1.shape)
+                median_values = cp.median(array1, axis=2)
+                # median_values.astype(cp.uint32)
+                # median_values = median_values + 1
+                # median_values = cp.array(median_values, dtype=cp.uint32)
+
+                # median_values = cp.where(median_values == -1, 65535, median_values)
+                # median_values = cp.where(median_values == 0, cp.nan, median_values)
+                # median_values = median_values - 1
+                # print(cp.max(median_values))
+                median_values=cp.where(cp.count_nonzero(array1==65535,axis=2)==8,65535,median_values)
+                # print(cp.max(median_values))
+                # if not os.path.exists("./测试/cp中位数/cpm"):
+                #     os.makedirs("./测试/cp中位数/cpm")
+                # with h5py.File(f"./测试/cp中位数/cpm/{block}.h5",'w') as f:
+                #     f.create_group('data')
+                #     f['data'].create_dataset(name=block, data=median_values.get())
+
+                # median_values = cp.where(median_values == cp.nan, 65535, median_values).astype(cp.uint16)
+                dummy_surrounding_median = ntl[2400 * (v-3):2400 * (v -2),2400 * (h-25):2400 * (h -24)] > median_values
+                dummy_surrounding_median=cp.where(median_values==65535,2,dummy_surrounding_median)
+                dummy_surrounding_median = cp.where(ntl[2400 * (v-3):2400 * (v -2),2400 * (h-25):2400 * (h -24)] == 65535, 2, dummy_surrounding_median)
+                print(cp.max(dummy_surrounding_median))
+                dummy_surrounding_median = dummy_surrounding_median.astype(cp.uint8)
+                print(cp.max(dummy_surrounding_median))
+
+                save_surrounding_median(data=dummy_surrounding_median.get().astype(np.uint8), year=year, day=day,
+                                        block=block,
+                                        description=f"这是全国{year}年度{day}天{block}的数据,用时{time.time() - st}")
+                print(f"这是全国{year}年度{day}天{block}的数据,用时{time.time() - st}")
+
+                median_values = None
+                array1 = None
+        array=None
+        dummy_surrounding_median = None
+        mask = None
+        view = None
+        fill = None
+        padded_ntl = None
+        data = None
+        ntl = None
         print(f"这是全国{year}年度{day}天的数据保存完毕")
-        end+=time.time()-st
-        print("用时：",end)
+        end += time.time() - st
+        print("用时：", end)
+
+
 if __name__ == "__main__":
     values_to_exclude = [65535]
+    blocks=construct_blocks()
     # for year in range(2012,2025):
     #     if year not in [2012,2022,2024]:
-    for year in range(2012,2021):
+    for year in range(2012, 2021):
+        if year!=2022:
             day_dirs = search_day_dirs(year)
             files = [search_h5_files(path) for path in day_dirs]
             daily_files = dict(zip(day_dirs, files))
