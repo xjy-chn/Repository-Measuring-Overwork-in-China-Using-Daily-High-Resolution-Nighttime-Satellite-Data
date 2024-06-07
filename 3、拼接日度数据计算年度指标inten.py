@@ -5,7 +5,7 @@ import h5py
 import json
 import numpy as np
 import numpy.ma as ma
-
+import cupy as cp
 
 def construct_blocks():
     blocks = []
@@ -57,12 +57,9 @@ def read_raw_h5(fp, block):
         with h5py.File(fp, 'r') as file:
             # 读取数据集到 NumPy 数组
             dataset = file['data'][block]
-            data_array = np.array(dataset)
+            data_array = cp.array(dataset)
     else:
-        data_array = -np.ones((2400, 2400), dtype=np.uint16)
-        # 无效值替换为空
-        # nan_indices = np.where(data_array == 65535)
-        # data_array[nan_indices] = np.nan
+        data_array = -cp.ones((2400, 2400), dtype=cp.uint16)
     return data_array
 
 
@@ -123,21 +120,18 @@ if __name__ == "__main__":
             st = time.time()
             num = len(value['intensity'])
             # print(num_dummy==num_inten)
-            data = -np.ones((num, 2400, 2400), dtype=np.uint16)
+            data = -cp.ones((num, 2400, 2400), dtype=cp.uint16)
             for i in range(num):
                 raw=read_raw_h5(value['intensity'][i], block)
                 data[i] = read_raw_h5(value['intensity'][i], block)
             mask = np.isin(data, values_to_exclude)
             condition1 = data != 65535
             condition2 = data > 0
-            missing = np.count_nonzero(data == 65535, axis=0)
+            missing = cp.count_nonzero(data == 65535, axis=0)
             no_missing = len(works) - missing
-            overwork_days = np.count_nonzero(condition1 & condition2, axis=0)
-
-            # print(np.mean(no_missing))
-            # print(len(works))
+            overwork_days = cp.count_nonzero(condition1 & condition2, axis=0)
             # time.sleep(3)
-            intensity = ma.median(ma.array(data, mask=mask), axis=0)
+            intensity = ma.median(ma.array(data.get(), mask=mask), axis=0)
             ratio = overwork_days / no_missing
             #导入缺失天数情况
             with h5py.File(f'result/overwork_nomissing/{year}/works/{block}.h5') as f:
@@ -146,12 +140,12 @@ if __name__ == "__main__":
                 holidays_no_missing = f['data'][block][:]
 
             # 增加导出非工作日no_missing数据的代码
-            ratio = np.round(ratio, decimals=2)
+            ratio = cp.round(ratio, decimals=2)
 
-            ratio = (100 * ratio).astype(np.uint16)
-            ratio = np.where(no_missing == 0, 65535, ratio)
-            ratio=np.where(works_no_missing <70, 65535, ratio)
-            ratio=np.where(holidays_no_missing <5, 65535, ratio)
+            ratio = (100 * ratio).astype(cp.uint16)
+            ratio = cp.where(no_missing == 0, 65535, ratio)
+            ratio=cp.where(works_no_missing <70, 65535, ratio)
+            ratio=cp.where(holidays_no_missing <5, 65535, ratio)
             # print(ra)
 
             save_annual_overwork(data=ratio, year=year,
@@ -161,23 +155,9 @@ if __name__ == "__main__":
             #                      description=f"{year}年{block}块的年度原始数据未缺失天数",
             #                      block=block)
 
-            # print(np.max(data))
-
-            # # print(intensity.shape)
-            # ave_intensity=intensity/overwork_days
-            # ave_intensity=np.where(no_missing==0,65535,ave_intensity)
-            # print(ave_intensity)
-            intensity = intensity.astype(np.uint32)
-            print(np.max(intensity))
-            print(np.count_nonzero(intensity==65534))
-            print(np.count_nonzero(data == 65534))
-            print(np.count_nonzero(data == 65535))
-            print(data.shape)
-            intensity = np.round(10 * intensity)
-            time.sleep(1000)
-            intensity = np.where(no_missing == 0, 655350, intensity)
-            intensity = np.where(no_missing == 0, 655350, intensity)
-            intensity = np.where(no_missing == 0, 655350, intensity)
+            intensity = cp.array(intensity,dtype=cp.uint32)
+            intensity = cp.round(10 * intensity)
+            intensity = cp.where(no_missing == 0, 655350, intensity)
             save_annual_overwork(data=intensity, year=year,
                                  description=f"{year}年{block}块的年度加班超过节假日灯光强度的中位数,数值四舍五入后放大了100倍",
                                  block=block, type="intensity")
@@ -187,11 +167,6 @@ if __name__ == "__main__":
             mask=None
             condition2=None
             condition1=None
-
-            # print(np.mean(intensity))
-            # print(np.median(intensity))
-            # print(np.min(ratio))
-            # print(np.max(ratio))
             print(f"{year}年{block}保存完成")
             print(f"用时{time.time() - st}秒")
 

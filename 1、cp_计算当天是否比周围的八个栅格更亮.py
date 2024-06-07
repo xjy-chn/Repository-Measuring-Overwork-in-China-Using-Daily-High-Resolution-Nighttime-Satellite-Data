@@ -142,7 +142,9 @@ def save_surrounding_median(data, year, day, block,description):
 
 def cal_surrounding_median_dummy():
     end = 0
+    # pinned_mempool = cp.get_default_pinned_memory_pool()
     for key, value in daily_files.items():
+        # pinned_mempool.free_all_blocks()
         day = key[-3:]
         year = key[2:6]
         st = time.time()
@@ -166,14 +168,12 @@ def cal_surrounding_median_dummy():
         #     f.create_group('data')
         #     f['data'].create_dataset(name="data", data=view2.get())
         # print("已保存")
-        print(np.count_nonzero(view2==65535)+np.count_nonzero(view2==0))
-        view = None
+
         array = -cp.ones((12000, 16800, 16), dtype=cp.uint16)
         view3 = cp.where(view2 == 65535, 0, view2)
-        print(np.count_nonzero(view3==0))
+        # print(np.count_nonzero(view3==0))
         array[:, :, 0:8] = view2
         array[:, :, 8:16] = view3
-
         view2 = None
         view3 = None
         for block in blocks:
@@ -204,9 +204,9 @@ def cal_surrounding_median_dummy():
                 dummy_surrounding_median = ntl[2400 * (v-3):2400 * (v -2),2400 * (h-25):2400 * (h -24)] > median_values
                 dummy_surrounding_median=cp.where(median_values==65535,2,dummy_surrounding_median)
                 dummy_surrounding_median = cp.where(ntl[2400 * (v-3):2400 * (v -2),2400 * (h-25):2400 * (h -24)] == 65535, 2, dummy_surrounding_median)
-                print(cp.max(dummy_surrounding_median))
+                # print(cp.max(dummy_surrounding_median))
                 dummy_surrounding_median = dummy_surrounding_median.astype(cp.uint8)
-                print(cp.max(dummy_surrounding_median))
+                # print(cp.max(dummy_surrounding_median))
 
                 save_surrounding_median(data=dummy_surrounding_median.get().astype(np.uint8), year=year, day=day,
                                         block=block,
@@ -215,12 +215,11 @@ def cal_surrounding_median_dummy():
 
                 median_values = None
                 array1 = None
+
         array=None
         dummy_surrounding_median = None
         mask = None
         view = None
-        fill = None
-        padded_ntl = None
         data = None
         ntl = None
         print(f"这是全国{year}年度{day}天的数据保存完毕")
@@ -233,7 +232,7 @@ if __name__ == "__main__":
     blocks=construct_blocks()
     # for year in range(2012,2025):
     #     if year not in [2012,2022,2024]:
-    for year in range(2012, 2021):
+    for year in range(2015, 2016):
         if year!=2022:
             day_dirs = search_day_dirs(year)
             files = [search_h5_files(path) for path in day_dirs]

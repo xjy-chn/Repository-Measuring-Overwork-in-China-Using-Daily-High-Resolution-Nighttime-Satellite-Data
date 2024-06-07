@@ -5,7 +5,7 @@ import numpy as np
 import json
 import h5py
 import numpy.ma as ma
-
+import cupy as cp
 
 def search_day_dirs(year):
     dirs = os.listdir(f'./{year}')
@@ -58,10 +58,10 @@ def read_raw_h5(fp):
     with h5py.File(fp, 'r') as file:
         # 读取数据集到 NumPy 数组
         dataset = file['HDFEOS']['GRIDS']['VNP_Grid_DNB']['Data Fields']['Gap_Filled_DNB_BRDF-Corrected_NTL']
-        data_array = np.array(dataset)
+        data_array = cp.array(dataset)
         # 无效值替换为空
-        # nan_indices = np.where(data_array == 65535)
-        # data_array[nan_indices] = np.nan
+        # nan_indices = cp.where(data_array == 65535)
+        # data_array[nan_indices] = cp.nan
     return data_array
 
 
@@ -69,10 +69,10 @@ def read_median_h5(fp, block):
     with h5py.File(fp, 'r') as file:
         # 读取数据集到 NumPy 数组
         dataset = file['data'][block]
-        data_array = np.array(dataset)
+        data_array = cp.array(dataset)
         # 无效值替换为空
-        # nan_indices = np.where(data_array == 65535)
-        # data_array[nan_indices] = np.nan
+        # nan_indices = cp.where(data_array == 65535)
+        # data_array[nan_indices] = cp.nan
     return data_array
 
 
@@ -111,11 +111,11 @@ def cal_median(year, annual_type):
     # 处理数据
     for key, value in annual_type.items():
         daynum = len(value)
-        array = np.zeros((daynum, 2400, 2400), dtype=np.uint16)
+        array = cp.zeros((daynum, 2400, 2400), dtype=cp.uint16)
         for i in range(daynum):
             array[i] = read_raw_h5(value[i])
 
-        mask = np.isin(array, values_to_exclude)
+        mask = cp.isin(array, values_to_exclude)
         # time.sleep(100)
         median_value = ma.median(ma.array(array, mask=mask), axis=0)
         print(median_value.shape)
@@ -135,22 +135,22 @@ def save_no_missing(data, year, block, description,type):
 
 
 def cal_nomissing_days(block_file_fp,type):
-    missing=np.ones((len(block_file_fp),2400,2400),dtype=np.uint8)
-    print(missing)
+    missing=cp.ones((len(block_file_fp),2400,2400),dtype=cp.uint16)
+    # print(missing)
     for i in range(len(block_file_fp)):
         data=read_raw_h5(block_file_fp[i])
-        data=np.where(data!=65535,0,data)
-        data=np.where(data==65535,1,data)
-        data=data.astype(np.uint8)
+        data=cp.where(data!=65535,0,data)
+        data=cp.where(data==65535,1,data)
+        data=data.astype(cp.bool)
         missing[i]=data
-    missing=np.sum(missing,axis=0)
+    missing=cp.sum(missing,axis=0)
     no_missing=len(type)-missing
     return no_missing
     # print(no_missing.shape)
     # print(no_missing)
-    # print(np.max(no_missing))
-    # print(np.min(no_missing))
-    # print(np.mean(missing)/len(type))
+    # print(cp.max(no_missing))
+    # print(cp.min(no_missing))
+    # print(cp.mean(missing)/len(type))
         # print(key + '/' + block)
         # data = read_raw_h5(key + '/' + block)
 
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     blocks = construct_blocks()
     # for year in range(2012,2025):
     #     if year not in [2012,2022,2024]:
-    for year in range(2012, 2013):
+    for year in range(2012, 2021):
         annual_holidays = dict()
         annual_works = dict()
         day_dirs = search_day_dirs(year)
@@ -174,16 +174,22 @@ if __name__ == "__main__":
         for key, value in holidays_blocks.items():
             print(key)
             nomissing_holidays=cal_nomissing_days(value,type=holidays)
-            nomissing_holidays=nomissing_holidays.astype(np.uint8)
-            save_no_missing(data=nomissing_holidays,year=year,block=key,
+            # nomissing_holidays=nomissing_holidays<5
+            nomissing_holidays=nomissing_holidays.astype(cp.uint8)
+            save_no_missing(data=nomissing_holidays.get(),year=year,block=key,
                             description=f"这是节假日有原始数据的天数，节假日总天数为{len(holidays)}",
                             type="holidays")
         nomissing_holidays=None
         for key, value in holidays_blocks.items():
             print(key)
+
             nomissing_works=cal_nomissing_days(value,type=works)
-            nomissing_works =nomissing_works.astype(np.uint8)
-            save_no_missing(data=nomissing_works,year=year,block=key,
+            # nomissing_works=nomissing_works>100
+            if cp.max(nomissing_works)<=255:
+                nomissing_works=nomissing_works.astype(cp.uint8)
+            else:
+                nomissing_works=nomissing_works.astype(cp.uint16)
+            save_no_missing(data=nomissing_works.get(),year=year,block=key,
                             description=f"这是工作日有原始数据的天数，节假日总天数为{len(works)}",
                             type="works")
         nomissing_works=None
