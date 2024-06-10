@@ -57,9 +57,9 @@ def read_raw_h5(fp, block):
         with h5py.File(fp, 'r') as file:
             # 读取数据集到 NumPy 数组
             dataset = file['data'][block]
-            data_array = cp.array(dataset)
+            data_array = np.array(dataset)
     else:
-        data_array = -cp.ones((2400, 2400), dtype=cp.uint16)
+        data_array = -np.ones((2400, 2400), dtype=np.uint16)
     return data_array
 
 
@@ -87,7 +87,7 @@ def save_no_missing(data, year, description, block):
 if __name__ == "__main__":
 
     # -----------------
-    for year in range(2012, 2013):
+    for year in range(2020, 2021):
         types = ["intensity", "dummy"]
         _, holidays, _, works, all = get_days(year)
         values_to_exclude = [65535]
@@ -120,44 +120,28 @@ if __name__ == "__main__":
             st = time.time()
             num = len(value['intensity'])
             # print(num_dummy==num_inten)
-            data = -cp.ones((num, 2400, 2400), dtype=cp.uint16)
+            data = -np.ones((num, 2400, 2400), dtype=np.uint16)
             for i in range(num):
                 raw=read_raw_h5(value['intensity'][i], block)
                 data[i] = read_raw_h5(value['intensity'][i], block)
             mask = np.isin(data, values_to_exclude)
             condition1 = data != 65535
             condition2 = data > 0
-            missing = cp.count_nonzero(data == 65535, axis=0)
+            missing = np.count_nonzero(data == 65535, axis=0)
             no_missing = len(works) - missing
-            overwork_days = cp.count_nonzero(condition1 & condition2, axis=0)
-            # time.sleep(3)
-            intensity = ma.median(ma.array(data.get(), mask=mask), axis=0)
-            ratio = overwork_days / no_missing
+
+            intensity = ma.median(ma.array(data, mask=mask), axis=0)
+
             #导入缺失天数情况
             with h5py.File(f'result/overwork_nomissing/{year}/works/{block}.h5') as f:
-                works_no_missing=f['data'][block][:]
+                works_no_missing=np.array(f['data'][block][:],dtype=np.uint16)
             with h5py.File(f'result/overwork_nomissing/{year}/holidays/{block}.h5') as f:
-                holidays_no_missing = f['data'][block][:]
-
-            # 增加导出非工作日no_missing数据的代码
-            ratio = cp.round(ratio, decimals=2)
-
-            ratio = (100 * ratio).astype(cp.uint16)
-            ratio = cp.where(no_missing == 0, 65535, ratio)
-            ratio=cp.where(works_no_missing <70, 65535, ratio)
-            ratio=cp.where(holidays_no_missing <5, 65535, ratio)
-            # print(ra)
-
-            save_annual_overwork(data=ratio, year=year,
-                                 description=f"{year}年{block}块的年度加班天数占比,数值四舍五入后放大了100倍",
-                                 block=block, type="ratio")
-            # save_no_missing(data=no_missing, year=year,
-            #                      description=f"{year}年{block}块的年度原始数据未缺失天数",
-            #                      block=block)
-
-            intensity = cp.array(intensity,dtype=cp.uint32)
-            intensity = cp.round(10 * intensity)
-            intensity = cp.where(no_missing == 0, 655350, intensity)
+                holidays_no_missing = np.array(f['data'][block][:],dtype=np.uint16)
+            intensity = np.array(intensity,dtype=np.uint32)
+            intensity = np.round(10 * intensity)
+            intensity = np.where(no_missing == 0, 655350, np.array(intensity,dtype=np.uint32))
+            intensity=np.where(works_no_missing <70, 655350, intensity)
+            intensity=np.where(holidays_no_missing <5, 655350, intensity)
             save_annual_overwork(data=intensity, year=year,
                                  description=f"{year}年{block}块的年度加班超过节假日灯光强度的中位数,数值四舍五入后放大了100倍",
                                  block=block, type="intensity")

@@ -150,7 +150,7 @@ def merge_daily_raw_blocks(blocks_fp: dict):
 if __name__ == "__main__":
 
     values_to_exclude = [65535]
-    for year in range(2012,2021):
+    for year in range(2020,2021):
         day_dirs = search_day_dirs(year)
 
         files = [search_h5_files(path) for path in day_dirs]
@@ -189,6 +189,8 @@ if __name__ == "__main__":
                 print(fp)
                 daily_raw = merge_daily_raw_blocks(fp)
                 daily_raw=daily_raw.astype(cp.int16)
+                # print("原始值最小值：",cp.min(daily_raw))
+                # print("原始值最大值：", cp.max(daily_raw))
                 national_annual_median_holiday_ntl=national_annual_median_holiday_ntl.astype(cp.int16)
                 dif = daily_raw - national_annual_median_holiday_ntl
                 dif=cp.where(daily_raw <national_annual_median_holiday_ntl,0,dif)
@@ -217,12 +219,26 @@ if __name__ == "__main__":
                 #原始数据缺失的
                 overwork_intensity = cp.where(daily_raw == 65535, 65535, overwork_intensity)
                 overwork_intensity = cp.where(national_annual_median_holiday_ntl == 65535, 65535, overwork_intensity)
-                #周边栅格有效数量大于3
+                #周边栅格有效数量大于等于3
                 overwork_intensity=cp.where(sur_valid<3,65535,overwork_intensity)
                 #周边栅格中位数缺失
                 overwork_intensity=cp.where(sur_median==2,65535,overwork_intensity)
+                #测试检查
+                # c1=sur_median==2
+                # c2=overwork_intensity!=65535
+                # x,y=cp.where(c1&c2)
+                #检查取值范围[0,65535]
+                # print("加班强度最小值：",cp.min(overwork_intensity))
+                # print("加班强度最大值：", cp.max(overwork_intensity))
+                # time.sleep(100)
+                # for i in range(len(x)):
+                #     print('原始数据：',daily_raw[x[i],y[i]])
+                #     print('假期中位数：',national_annual_median_holiday_ntl[x[i],y[i]])
+                #     print('周围有效栅格：',sur_valid[x[i], y[i]])
+                #     time.sleep(5)
                 # print("最小最大值：",cp.count_nonzero(overwork_intensity[x,y]==65535),cp.count_nonzero(overwork_intensity[x,y]==0),
                 #       len(x)==cp.count_nonzero(overwork_intensity[x,y]==65535)+cp.count_nonzero(overwork_intensity[x,y]==0))
+                # time.sleep(1000)
                 overwork_dummy = cp.where(condition1 & condition2, 1, overwork_intensity)
                 overwork_dummy=cp.where(overwork_dummy==65535,2,overwork_dummy)
                 overwork_dummy=overwork_dummy.astype(cp.uint8)
@@ -233,10 +249,10 @@ if __name__ == "__main__":
                 for block in blocks:
                     h = int(block[1:3])
                     v = int(block[4:6])
-                    # save_overwork(data=overwork_intensity[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)].get(),
-                    #               date=date, year=year, description="这是分块保存的日度加班情况",
-                    #               block=block, type="intensity")
-                    save_overwork(data=overwork_dummy[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)].get(),
+                    save_overwork(data=overwork_intensity[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)].get(),
                                   date=date, year=year, description="这是分块保存的日度加班情况",
-                                  block=block, type="dummy")
+                                  block=block, type="intensity")
+                    # save_overwork(data=overwork_dummy[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)].get(),
+                    #               date=date, year=year, description="这是分块保存的日度加班情况",
+                    #               block=block, type="dummy")
                     print(f"{year}年第{int(date)}日{block}块保存完成")
