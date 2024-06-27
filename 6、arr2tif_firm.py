@@ -33,15 +33,12 @@ def arcpy_to_tiff(data,fp,filename):
     raster.save(f'{fp}/{filename}.tif')
 
 if __name__=="__main__":
-    if not os.path.exists(f'./result/variables/有企业的栅格的加班情况/tiff/去掉居民区'):
-        os.makedirs(f'./result/variables/有企业的栅格的加班情况/tiff/去掉居民区')
+    if not os.path.exists(f'年度企业存量栅格/tiff/'):
+        os.makedirs(f'年度企业存量栅格/tiff/')
     for year in range(2012,2021):
         # with h5py.File(f'./result/variables/有企业的栅格的加班情况/{year}dummy.h5') as f:
         #     data = np.array(f['data'][f'{year}'][:])
         # arr_to_tiff(data, f'./result/variables/有企业的栅格的加班情况/tiff/{year}dummy.tif', gdal.GDT_Int8, 101)
-        with h5py.File(f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比/DR_numWeighted_{year}dummy.h5') as f:
+        with h5py.File(f'./年度企业存量栅格/{year}firms_position.h5') as f:
             data = np.array(f['data'][f'{year}'][:])
-        arr_to_tiff(data, f'./result/variables/有企业的栅格的加班情况/tiff/去掉居民区/DR_numWeighted_{year}dummy.tif', gdal.GDT_Int8, 101)
-        with h5py.File(f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比/DR_{year}dummy.h5') as f:
-            data = np.array(f['data'][f'{year}'][:])
-        arr_to_tiff(data, f'./result/variables/有企业的栅格的加班情况/tiff/去掉居民区/DR_{year}dummy.tif', gdal.GDT_Int8, 101)
+        arr_to_tiff(data, f'./年度企业存量栅格/tiff/{year}firms_position.tif', gdal.GDT_UInt16, 101)

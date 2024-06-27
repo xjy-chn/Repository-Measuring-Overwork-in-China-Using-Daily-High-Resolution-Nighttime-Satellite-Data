@@ -23,22 +23,40 @@ def construct_blocks():
 def get_days(data_year):
     # 节假日、假日、周末、工作日
     festivals, holidays, weekends, works, all = [], [], [], [], []
-    with open(f'./万年历/{data_year}.json', 'r', encoding='utf-8') as file:
-        content = json.load(file)
-        data = content['data']
-        for month in data:
-            for day in month['days']:
-                if day['type'] == 2:
-                    festivals.append(day)
-                    holidays.append(day)
-                    all.append(day)
-                elif day['type'] == 1:
-                    holidays.append(day)
-                    weekends.append(day)
-                    all.append(day)
-                elif day['type'] == 0:
-                    works.append(day)
-                    all.append(day)
+    if data_year != 2012:
+        with open(f'./万年历/{data_year}.json', 'r', encoding='utf-8') as file:
+            content = json.load(file)
+            data = content['data']
+            for month in data:
+                for day in month['days']:
+                    if day['type'] == 2:
+                        festivals.append(day)
+                        holidays.append(day)
+                        all.append(day)
+                    elif day['type'] == 1:
+                        holidays.append(day)
+                        weekends.append(day)
+                        all.append(day)
+                    elif day['type'] == 0:
+                        works.append(day)
+                        all.append(day)
+    elif data_year == 2012:
+        with open(f'./万年历/{data_year}.json', 'r', encoding='utf-8') as file:
+            content = json.load(file)
+            data = content['data']
+            for month in data:
+                for day in month['days']:
+                    if day['type'] == 2 and int(day['dayOfYear'])>=19:
+                        festivals.append(day)
+                        holidays.append(day)
+                        all.append(day)
+                    elif day['type'] == 1 and int(day['dayOfYear'])>=19:
+                        holidays.append(day)
+                        weekends.append(day)
+                        all.append(day)
+                    elif day['type'] == 0 and int(day['dayOfYear'])>=19:
+                        works.append(day)
+                        all.append(day)
     return festivals, holidays, weekends, works, all
 
 
@@ -87,7 +105,7 @@ def save_no_missing(data, year, description, block):
 if __name__ == "__main__":
 
     # -----------------
-    for year in range(2020, 2021):
+    for year in range(2012, 2013):
         types = ["intensity", "dummy"]
         _, holidays, _, works, all = get_days(year)
         values_to_exclude = [65535]
@@ -129,7 +147,6 @@ if __name__ == "__main__":
             condition2 = data > 0
             missing = np.count_nonzero(data == 65535, axis=0)
             no_missing = len(works) - missing
-
             intensity = ma.median(ma.array(data, mask=mask), axis=0)
 
             #导入缺失天数情况
@@ -139,6 +156,8 @@ if __name__ == "__main__":
                 holidays_no_missing = np.array(f['data'][block][:],dtype=np.uint16)
             intensity = np.array(intensity,dtype=np.uint32)
             intensity = np.round(10 * intensity)
+            print(np.max(intensity))
+            # time.sleep(100)
             intensity = np.where(no_missing == 0, 655350, np.array(intensity,dtype=np.uint32))
             intensity=np.where(works_no_missing <70, 655350, intensity)
             intensity=np.where(holidays_no_missing <5, 655350, intensity)

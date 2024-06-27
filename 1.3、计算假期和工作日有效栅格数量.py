@@ -35,22 +35,40 @@ def construct_blocks():
 def get_days(data_year):
     # 节假日、假日、周末、工作日
     festivals, holidays, weekends, works, all = [], [], [], [], []
-    with open(f'./万年历/{data_year}.json', 'r', encoding='utf-8') as file:
-        content = json.load(file)
-        data = content['data']
-        for month in data:
-            for day in month['days']:
-                if day['type'] == 2:
-                    festivals.append(day)
-                    holidays.append(day)
-                    all.append(day)
-                elif day['type'] == 1:
-                    holidays.append(day)
-                    weekends.append(day)
-                    all.append(day)
-                elif day['type'] == 0:
-                    works.append(day)
-                    all.append(day)
+    if data_year != 2012:
+        with open(f'./万年历/{data_year}.json', 'r', encoding='utf-8') as file:
+            content = json.load(file)
+            data = content['data']
+            for month in data:
+                for day in month['days']:
+                    if day['type'] == 2:
+                        festivals.append(day)
+                        holidays.append(day)
+                        all.append(day)
+                    elif day['type'] == 1:
+                        holidays.append(day)
+                        weekends.append(day)
+                        all.append(day)
+                    elif day['type'] == 0:
+                        works.append(day)
+                        all.append(day)
+    elif data_year == 2012:
+        with open(f'./万年历/{data_year}.json', 'r', encoding='utf-8') as file:
+            content = json.load(file)
+            data = content['data']
+            for month in data:
+                for day in month['days']:
+                    if day['type'] == 2 and int(day['dayOfYear'])>=19:
+                        festivals.append(day)
+                        holidays.append(day)
+                        all.append(day)
+                    elif day['type'] == 1 and int(day['dayOfYear'])>=19:
+                        holidays.append(day)
+                        weekends.append(day)
+                        all.append(day)
+                    elif day['type'] == 0 and int(day['dayOfYear'])>=19:
+                        works.append(day)
+                        all.append(day)
     return festivals, holidays, weekends, works, all
 
 
@@ -160,7 +178,7 @@ if __name__ == "__main__":
     blocks = construct_blocks()
     # for year in range(2012,2025):
     #     if year not in [2012,2022,2024]:
-    for year in range(2012, 2021):
+    for year in range(2012, 2013):
         annual_holidays = dict()
         annual_works = dict()
         day_dirs = search_day_dirs(year)

@@ -27,7 +27,7 @@ def convert(block,nodata_value,xcell_size,ycell_size):
 
 
 if __name__ == "__main__":
-    for year in range(2012,2021):
+    for year in range(2012,2013):
         # intensity = 655340 * np.ones((5 * 2400, 7 * 2400), dtype=np.uint32)
         # for v in range(5):
         #     for h in range(7):

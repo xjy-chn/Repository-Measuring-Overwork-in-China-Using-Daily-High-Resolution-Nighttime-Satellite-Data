@@ -8,6 +8,7 @@ import cupy as cp
 import numpy.ma as ma
 from scipy.stats import linregress
 from scipy.stats.mstats import winsorize
+import pandas as pd
 # 项目初始化
 project_fp = "F:\popLight\测试"
 databse_name = "日度灯光项目.gdb"
@@ -53,7 +54,7 @@ def construct_blocks():
     return blocks
 
 
-def cal_overwork_ratio(year, weight=False):
+def cal_overwork_ratio(year, weight=False,):
     with h5py.File(f"./result/annual_overwork/national/dummy/dummy{year}.h5", 'r') as f:
         overwork = cp.array(f['data'][f'{year}'][:], dtype=cp.uint8)
     with h5py.File(f'./年度企业存量栅格/{year}firms_position.h5', "r") as f:
@@ -81,7 +82,44 @@ def cal_overwork_ratio(year, weight=False):
                                      data="使用计算出的加班天数占比栅格，将没有企业的栅格中的加班情况赋值为空,使用企业数量进行了加权")
         print(f"{year}年的企业数量加权的加班（使用企业存量剔除不存在企业的地区）保存成功")
 
+def cal_overwork_ratio_withoutResident(year, x,y,weight=False):
+    with h5py.File(f"./result/annual_overwork/national/dummy/dummy{year}.h5", 'r') as f:
+        overwork = cp.array(f['data'][f'{year}'][:], dtype=cp.uint8)
+    with h5py.File(f'./年度企业存量栅格/{year}firms_position.h5', "r") as f:
+        firmnum = cp.array(f['data'][f'{year}'][:], dtype=cp.uint16)
 
+    firmdummy = cp.where(firmnum > 0, 1, firmnum)
+    overwork = cp.where(firmdummy == 0, 101, overwork)
+    overwork[x,y]=101
+    if not os.path.exists(f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比'):
+        os.makedirs(f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比')
+    with h5py.File(f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比/DR_{year}dummy.h5', 'w') as f:
+        f.create_group('data')
+        f['data'].create_dataset(name=str(year), data=overwork.get())
+        f['data'].create_dataset(name='nan', data=101)
+        f['data'].create_dataset(name='description',
+                                 data="使用计算出的加班天数占比栅格，将没有企业的栅格中的加班情况赋值为空，将居民点栅格赋值为空")
+    print(f"{year}年的加班（使用企业存量剔除不存在企业的地区）保存成功,将居民点栅格赋值为空")
+    if weight:
+        overwork2 = overwork / firmnum
+        overwork2 = cp.where(overwork == 101, 101, overwork2)
+        with h5py.File(f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比/DR_numWeighted_{year}dummy.h5', 'w') as f:
+            f.create_group('data')
+            f['data'].create_dataset(name=str(year), data=overwork2.get())
+            f['data'].create_dataset(name='nan', data=101)
+            f['data'].create_dataset(name='description',
+                                     data="使用计算出的加班天数占比栅格，将没有企业的栅格中的加班情况赋值为空,使用企业数量进行了加权，将居民点栅格赋值为空")
+        print(f"{year}年的企业数量加权的加班（使用企业存量剔除不存在企业的地区）保存成功，将居民点栅格赋值为空")
+def del_resident():
+    resident=pd.read_excel('./result/variables/有企业的栅格的加班情况/居民地/原始excel数据导出.xlsx')
+    print(resident.columns)
+    print(len(resident))
+    resident['yindex'] = resident.apply(lambda x: int((x['x'] - 70) / (10 / 2400)), axis=1)
+    resident['xindex'] = resident.apply(lambda x: int((x['y'] - 10) / (10 / 2400)), axis=1)
+    resident=resident[resident['xindex']>=0]
+    resident.reset_index(inplace=True,drop=True)
+    x,y=list(resident['xindex']),list(resident['yindex'])
+    return x,y
 def cal_corrcoef(year):
     blocks = construct_blocks()
     with h5py.File(f"./result/annual_overwork/national/dummy/dummy{year}.h5", 'r') as f:
@@ -159,10 +197,13 @@ if __name__ == "__main__":
     corrs = []
     st=time.time()
     plt.rcParams['font.family'] = 'SimHei'  # 替换为你选择的字体
-    for year in range(2012, 2021):
+    x,y=del_resident()
+    for year in range(2012, 2013):
         # 保留有企业地区的加班天数占比
-        # cal_overwork_ratio(year,weight=True)
-        corrs.append(cal_corrcoef(year))
-    print(corrs)
-    print('耗时：',time.time()-st)
-
+        cal_overwork_ratio(year,weight=True)
+        cal_overwork_ratio_withoutResident(year,x,y,weight=True)
+        # 计算栅格层面的相关系数
+        # corrs.append(cal_corrcoef(year))
+    # print(corrs)
+    # print('耗时：',time.time()-st)
+    del_resident()
