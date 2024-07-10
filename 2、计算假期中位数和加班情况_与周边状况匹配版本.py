@@ -150,7 +150,7 @@ def merge_daily_raw_blocks(blocks_fp: dict):
 if __name__ == "__main__":
 
     values_to_exclude = [65535]
-    for year in range(2020,2021):
+    for year in range(2012,2013):
         day_dirs = search_day_dirs(year)
 
         files = [search_h5_files(path) for path in day_dirs]
@@ -249,10 +249,10 @@ if __name__ == "__main__":
                 for block in blocks:
                     h = int(block[1:3])
                     v = int(block[4:6])
-                    save_overwork(data=overwork_intensity[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)].get(),
-                                  date=date, year=year, description="这是分块保存的日度加班情况",
-                                  block=block, type="intensity")
-                    # save_overwork(data=overwork_dummy[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)].get(),
+                    # save_overwork(data=overwork_intensity[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)].get(),
                     #               date=date, year=year, description="这是分块保存的日度加班情况",
-                    #               block=block, type="dummy")
+                    #               block=block, type="intensity")
+                    save_overwork(data=overwork_dummy[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)].get(),
+                                  date=date, year=year, description="这是分块保存的日度加班情况",
+                                  block=block, type="dummy")
                     print(f"{year}年第{int(date)}日{block}块保存完成")

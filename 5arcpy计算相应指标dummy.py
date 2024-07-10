@@ -9,6 +9,7 @@ import numpy.ma as ma
 from scipy.stats import linregress
 from scipy.stats.mstats import winsorize
 import pandas as pd
+
 # 项目初始化
 project_fp = "F:\popLight\测试"
 databse_name = "日度灯光项目.gdb"
@@ -54,7 +55,7 @@ def construct_blocks():
     return blocks
 
 
-def cal_overwork_ratio(year, weight=False,):
+def cal_overwork_ratio(year, weight=False, ):
     with h5py.File(f"./result/annual_overwork/national/dummy/dummy{year}.h5", 'r') as f:
         overwork = cp.array(f['data'][f'{year}'][:], dtype=cp.uint8)
     with h5py.File(f'./年度企业存量栅格/{year}firms_position.h5', "r") as f:
@@ -82,7 +83,8 @@ def cal_overwork_ratio(year, weight=False,):
                                      data="使用计算出的加班天数占比栅格，将没有企业的栅格中的加班情况赋值为空,使用企业数量进行了加权")
         print(f"{year}年的企业数量加权的加班（使用企业存量剔除不存在企业的地区）保存成功")
 
-def cal_overwork_ratio_withoutResident(year, x,y,weight=False):
+
+def cal_overwork_ratio_withoutResident(year, x, y, weight=False):
     with h5py.File(f"./result/annual_overwork/national/dummy/dummy{year}.h5", 'r') as f:
         overwork = cp.array(f['data'][f'{year}'][:], dtype=cp.uint8)
     with h5py.File(f'./年度企业存量栅格/{year}firms_position.h5', "r") as f:
@@ -90,7 +92,7 @@ def cal_overwork_ratio_withoutResident(year, x,y,weight=False):
 
     firmdummy = cp.where(firmnum > 0, 1, firmnum)
     overwork = cp.where(firmdummy == 0, 101, overwork)
-    overwork[x,y]=101
+    overwork[x, y] = 101
     if not os.path.exists(f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比'):
         os.makedirs(f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比')
     with h5py.File(f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比/DR_{year}dummy.h5', 'w') as f:
@@ -103,23 +105,29 @@ def cal_overwork_ratio_withoutResident(year, x,y,weight=False):
     if weight:
         overwork2 = overwork / firmnum
         overwork2 = cp.where(overwork == 101, 101, overwork2)
-        with h5py.File(f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比/DR_numWeighted_{year}dummy.h5', 'w') as f:
+        with h5py.File(
+                f'./result/variables/有企业的栅格的加班情况/去掉居民区+加班天数占比/DR_numWeighted_{year}dummy.h5',
+                'w') as f:
             f.create_group('data')
             f['data'].create_dataset(name=str(year), data=overwork2.get())
             f['data'].create_dataset(name='nan', data=101)
             f['data'].create_dataset(name='description',
                                      data="使用计算出的加班天数占比栅格，将没有企业的栅格中的加班情况赋值为空,使用企业数量进行了加权，将居民点栅格赋值为空")
         print(f"{year}年的企业数量加权的加班（使用企业存量剔除不存在企业的地区）保存成功，将居民点栅格赋值为空")
+
+
 def del_resident():
-    resident=pd.read_excel('./result/variables/有企业的栅格的加班情况/居民地/原始excel数据导出.xlsx')
+    resident = pd.read_excel('./result/variables/有企业的栅格的加班情况/居民地/居民地坐标点0709.xlsx')
     print(resident.columns)
     print(len(resident))
     resident['yindex'] = resident.apply(lambda x: int((x['x'] - 70) / (10 / 2400)), axis=1)
     resident['xindex'] = resident.apply(lambda x: int((x['y'] - 10) / (10 / 2400)), axis=1)
-    resident=resident[resident['xindex']>=0]
-    resident.reset_index(inplace=True,drop=True)
-    x,y=list(resident['xindex']),list(resident['yindex'])
-    return x,y
+    resident = resident[resident['xindex'] >= 0]
+    resident.reset_index(inplace=True, drop=True)
+    x, y = list(resident['xindex']), list(resident['yindex'])
+    return x, y
+
+
 def cal_corrcoef(year):
     blocks = construct_blocks()
     with h5py.File(f"./result/annual_overwork/national/dummy/dummy{year}.h5", 'r') as f:
@@ -129,29 +137,29 @@ def cal_corrcoef(year):
 
     firmdummy = cp.where(firmnum > 0, 1, firmnum)
     overwork = cp.where(firmdummy == 0, 101, overwork)
-    firmnum2 = cp.zeros((30, 2400, 2400),dtype=cp.uint16)
-    overwork2 = 101 * cp.zeros((30, 2400, 2400),dtype=cp.uint8)
+    firmnum2 = cp.zeros((30, 2400, 2400), dtype=cp.uint16)
+    overwork2 = 101 * cp.zeros((30, 2400, 2400), dtype=cp.uint8)
     for i in range(len(blocks)):
         h = int(blocks[i][1:3])
         v = int(blocks[i][4:6])
-        print(h,v)
+        print(h, v)
         firmnum2[i] = firmnum[(v - 3) * 2400:(v - 2) * 2400, (h - 25) * 2400:(h - 24) * 2400]
         overwork2[i] = overwork[(v - 3) * 2400:(v - 2) * 2400, (h - 25) * 2400:(h - 24) * 2400]
-    firmnum2=firmnum2.reshape((30*2400*2400,1))
-    overwork2=overwork2.reshape((30*2400*2400,1))
-    include=cp.where(overwork2!=101)
-    firmnum2=firmnum2[include]
+    firmnum2 = firmnum2.reshape((30 * 2400 * 2400, 1))
+    overwork2 = overwork2.reshape((30 * 2400 * 2400, 1))
+    include = cp.where(overwork2 != 101)
+    firmnum2 = firmnum2[include]
     overwork2 = overwork2[include]
     # print(cp.count_nonzero(firmnum==0))
-    woverwork2=winsorize(overwork2.get(),[0.01,0.01])
-    wfirmnum2=winsorize(firmnum2.get(),[0.01,0.01])
+    woverwork2 = winsorize(overwork2.get(), [0.01, 0.01])
+    wfirmnum2 = winsorize(firmnum2.get(), [0.01, 0.01])
     # time.sleep(100)
-    corr = cp.corrcoef(overwork2,firmnum2)
+    corr = cp.corrcoef(overwork2, firmnum2)
     plt.ion()
-    slope, intercept, r_value, p_value, std_err = linregress(overwork2.get(),firmnum2.get())
-    plt.scatter(firmnum2.get(),overwork2.get(),s=3)
+    slope, intercept, r_value, p_value, std_err = linregress(overwork2.get(), firmnum2.get())
+    plt.scatter(firmnum2.get(), overwork2.get(), s=3)
     plt.plot(firmnum2.get(), slope * firmnum2.get() + intercept, color='red')
-    plt.xlabel(f"栅格内企业数量，R={str(corr[1,1])}")
+    plt.xlabel(f"栅格内企业数量，R={str(corr[1, 1])}")
     plt.ylabel("加班天数占比")
     plt.title("原始数据未缩尾")
     if not os.path.exists("./result/variables/描述性统计/相关性和散点图/散点图"):
@@ -161,12 +169,12 @@ def cal_corrcoef(year):
     plt.show()
     plt.close()
 
-    corr = cp.corrcoef(woverwork2,wfirmnum2)
+    corr = cp.corrcoef(woverwork2, wfirmnum2)
     plt.ion()
-    slope, intercept, r_value, p_value, std_err = linregress(woverwork2,wfirmnum2)
-    plt.scatter(wfirmnum2,woverwork2,s=3)
+    slope, intercept, r_value, p_value, std_err = linregress(woverwork2, wfirmnum2)
+    plt.scatter(wfirmnum2, woverwork2, s=3)
     plt.plot(wfirmnum2, slope * wfirmnum2 + intercept, color='red')
-    plt.xlabel(f"栅格内企业数量，R={str(corr[1,1])}")
+    plt.xlabel(f"栅格内企业数量，R={str(corr[1, 1])}")
     plt.ylabel("加班天数占比")
     plt.title("左右1%缩尾")
     if not os.path.exists("./result/variables/描述性统计/相关性和散点图/散点图"):
@@ -190,18 +198,18 @@ def cal_corrcoef(year):
     plt.savefig(f"./result/variables/描述性统计/相关性和散点图/散点图/wx{year}.jpg")
     plt.show()
     plt.close()
-    return  float(corr[1,1])
+    return float(corr[1, 1])
 
 
 if __name__ == "__main__":
     corrs = []
-    st=time.time()
+    st = time.time()
     plt.rcParams['font.family'] = 'SimHei'  # 替换为你选择的字体
-    x,y=del_resident()
-    for year in range(2012, 2013):
+    x, y = del_resident()
+    for year in range(2012, 2021):
         # 保留有企业地区的加班天数占比
-        cal_overwork_ratio(year,weight=True)
-        cal_overwork_ratio_withoutResident(year,x,y,weight=True)
+        # cal_overwork_ratio(year,weight=True)
+        cal_overwork_ratio_withoutResident(year, x, y, weight=True)
         # 计算栅格层面的相关系数
         # corrs.append(cal_corrcoef(year))
     # print(corrs)

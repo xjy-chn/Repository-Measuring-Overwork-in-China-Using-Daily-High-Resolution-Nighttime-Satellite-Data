@@ -6,14 +6,11 @@ import os
 import numpy as np
 import cupy as cp
 import numpy.ma as ma
+
 from scipy.stats import linregress
 from scipy.stats.mstats import winsorize
 import pandas as pd
-# 项目初始化
-project_fp = "F:\popLight\测试"
-databse_name = "日度灯光项目.gdb"
-result_fp = project_fp + "\\" + "result"
-
+import binsreg
 
 def create_project():
     arcpy.env.workspace = project_fp
@@ -163,7 +160,7 @@ def cal_overwork_ratio_withoutResident(year, x,y,weight=False):
         print(f"{year}年的企业数量加权的加班（使用企业存量剔除不存在企业的地区）保存成功")
 
 def del_resident():
-    resident=pd.read_excel('./result/variables/有企业的栅格的加班情况/居民地/居民地坐标点0709.xlsx')
+    resident=pd.read_excel('./result/variables/有企业的栅格的加班情况/居民地/原始excel数据导出.xlsx')
     print(resident.columns)
     print(len(resident))
     resident['yindex'] = resident.apply(lambda x: int((x['x'] - 70) / (10 / 2400)), axis=1)
@@ -201,8 +198,13 @@ def cal_corrcoef(year):
     corr = cp.corrcoef(overwork2,firmnum2)
     plt.ion()
     slope, intercept, r_value, p_value, std_err = linregress(overwork2.get(),firmnum2.get())
-    plt.scatter(firmnum2.get(),overwork2.get(),s=3)
-    plt.plot(firmnum2.get(), slope * firmnum2.get() + intercept, color='red')
+    # plt.scatter(firmnum2.get(),overwork2.get(),s=3)
+    print(len(overwork2))
+    print(cp.max(overwork2))
+
+    binsreg.binsreg(overwork2.get(),firmnum2.get())
+    time.sleep(100)
+    # plt.plot(firmnum2.get(), slope * firmnum2.get() + intercept, color='red')
     plt.xlabel(f"栅格内企业数量，R={str(corr[1,1])}")
     plt.ylabel("加班天数占比")
     plt.title("原始数据未缩尾")
@@ -223,8 +225,8 @@ def cal_corrcoef(year):
     plt.title("左右1%缩尾")
     if not os.path.exists("./result/variables/描述性统计/相关性和散点图/散点图"):
         os.makedirs("./result/variables/描述性统计/相关性和散点图/散点图")
-    plt.savefig(f"./result/variables/描述性统计/相关性和散点图/散点图/w{year}.svg")
-    plt.savefig(f"./result/variables/描述性统计/相关性和散点图/散点图/w{year}.jpg")
+    # plt.savefig(f"./result/variables/描述性统计/相关性和散点图/散点图/w{year}.svg")
+    # plt.savefig(f"./result/variables/描述性统计/相关性和散点图/散点图/w{year}.jpg")
     plt.show()
     plt.close()
 
@@ -250,12 +252,12 @@ if __name__ == "__main__":
     st=time.time()
     plt.rcParams['font.family'] = 'SimHei'  # 替换为你选择的字体
     x,y=del_resident()
-    for year in range(2012, 2021):
+    for year in range(2012, 2013):
         # 保留有企业地区的加班天数占比
         # cal_overwork_inten(year,weight=True)
-        cal_overwork_ratio_withoutResident(year,x,y,weight=True)
+        # cal_overwork_ratio_withoutResident(year,x,y,weight=True)
         # 计算栅格层面的相关系数
-        # corrs.append(cal_corrcoef(year))
+        corrs.append(cal_corrcoef(year))
     # print(corrs)
     # print('耗时：',time.time()-st)
     del_resident()

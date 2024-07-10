@@ -154,13 +154,15 @@ def save_no_missing(data, year, block, description,type):
 
 def cal_nomissing_days(block_file_fp,type):
     missing=cp.ones((len(block_file_fp),2400,2400),dtype=cp.uint16)
-    # print(missing)
+    print(missing.shape)
+    print(len(block_file_fp))
     for i in range(len(block_file_fp)):
         data=read_raw_h5(block_file_fp[i])
         data=cp.where(data!=65535,0,data)
         data=cp.where(data==65535,1,data)
         data=data.astype(cp.bool)
         missing[i]=data
+    # x, y, z = cp.where(missing==0)
     missing=cp.sum(missing,axis=0)
     no_missing=len(type)-missing
     return no_missing
@@ -185,32 +187,35 @@ if __name__ == "__main__":
         files = [search_h5_files(path) for path in day_dirs]
         daily_files = dict(zip(day_dirs, files))
         _, holidays, _, works, all = get_days(year)
+
         holidays_blocks = collect_block_files(year, type=holidays, annual_type=annual_holidays)
         works_blocks = collect_block_files(year, type=holidays, annual_type=annual_works)
         # print(holidays_blocks.keys())
         # print(works_blocks.keys())
         for key, value in holidays_blocks.items():
             print(key)
-            nomissing_holidays=cal_nomissing_days(value,type=holidays)
+            nomissing_holidays = cal_nomissing_days(value, type=holidays)
             # nomissing_holidays=nomissing_holidays<5
-            nomissing_holidays=nomissing_holidays.astype(cp.uint8)
-            save_no_missing(data=nomissing_holidays.get(),year=year,block=key,
+            nomissing_holidays = nomissing_holidays.astype(cp.uint8)
+            if year==2012:
+                nomissing_holidays=nomissing_holidays-5
+            save_no_missing(data=nomissing_holidays.get(), year=year, block=key,
                             description=f"这是节假日有原始数据的天数，节假日总天数为{len(holidays)}",
                             type="holidays")
-        nomissing_holidays=None
-        for key, value in holidays_blocks.items():
-            print(key)
-
-            nomissing_works=cal_nomissing_days(value,type=works)
-            # nomissing_works=nomissing_works>100
-            if cp.max(nomissing_works)<=255:
-                nomissing_works=nomissing_works.astype(cp.uint8)
-            else:
-                nomissing_works=nomissing_works.astype(cp.uint16)
-            save_no_missing(data=nomissing_works.get(),year=year,block=key,
-                            description=f"这是工作日有原始数据的天数，节假日总天数为{len(works)}",
-                            type="works")
-        nomissing_works=None
-
+        # nomissing_holidays=None
+        # for key, value in holidays_blocks.items():
+        #     print(key)
+        #
+        #     nomissing_works=cal_nomissing_days(value,type=works)
+        #     # nomissing_works=nomissing_works>100
+        #     if cp.max(nomissing_works)<=255:
+        #         nomissing_works=nomissing_works.astype(cp.uint8)
+        #     else:
+        #         nomissing_works=nomissing_works.astype(cp.uint16)
+        #     save_no_missing(data=nomissing_works.get(),year=year,block=key,
+        #                     description=f"这是工作日有原始数据的天数，节假日总天数为{len(works)}",
+        #                     type="works")
+        # nomissing_works=None
+        #
 
         # cal_surrounding_median_dummy()
