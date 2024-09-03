@@ -38,6 +38,9 @@ def clip_tiff(shapefile_path, tiff_path, output_path):
     tiff_dataset = gdal.Open(tiff_path)
     output_dataset = gdal.Warp(output_path, tiff_dataset, cutlineDSName=shapefile_path, cutlineLayer=layer.GetName(),
                                cropToCutline=True)
+    print(tiff_dataset)
+    print(shapefile)
+    print(output_dataset)
     data=cp.array(output_dataset.ReadAsArray())
     print(cp.count_nonzero(cp.array(output_dataset.ReadAsArray())!=101))
     output_dataset.GetRasterBand(1).ComputeStatistics(0)
@@ -69,7 +72,10 @@ def arr_to_tiff(array, fp, data_type,nodata):
     shp_ds = None
 
 if __name__=="__main__":
-    for year in range(2020,2021):
+    radius=3
+    if not  os.path.exists(f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/tif/CN"):
+        os.makedirs(f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/tif/CN")
+    for year in range(2012,2021):
         st=time.time()
         with h5py.File(f"./result/annual_overwork/national/dummy/dummy{year}.h5", 'r') as f:
             overwork = cp.array(f['data'][f'{year}'][:], dtype=cp.uint8)
@@ -77,18 +83,18 @@ if __name__=="__main__":
         with h5py.File(f'./年度企业存量栅格/{year}firms_position.h5', "r") as f:
             firmnum = cp.array(f['data'][f'{year}'][:], dtype=cp.uint16)
             print(cp.max(firmnum))
-        if not os.path.exists(f"./result/variables/描述性统计/上市公司栅格层面相关性和散点图/tif"):
-            os.makedirs(f"./result/variables/描述性统计/上市公司栅格层面相关性和散点图/tif")
-        arr_to_tiff(overwork.get(),fp=f"./result/variables/描述性统计/上市公司栅格层面相关性和散点图/tif/{year}dummy.tif",
+        if not os.path.exists(f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/tif"):
+            os.makedirs(f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/tif")
+        arr_to_tiff(overwork.get(),fp=f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/tif/CN/{year}dummy.tif",
                     data_type=gdal.GDT_Int8,nodata=101)
-        arr_to_tiff(firmnum.get(),fp=f"./result/variables/描述性统计/上市公司栅格层面相关性和散点图/tif/{year}firmnum.tif",
+        arr_to_tiff(firmnum.get(),fp=f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/tif/CN/{year}firmnum.tif",
                     data_type=gdal.GDT_Int16,nodata=65535)
         overwork2=clip_tiff(shapefile_path=r"F:\日度夜间灯光\国界\国.shp",
-                  tiff_path=f"./result/variables/描述性统计/上市公司栅格层面相关性和散点图/tif/{year}dummy.tif",
-                  output_path=f"./result/variables/描述性统计/上市公司栅格层面相关性和散点图/tif/CN/{year}dummy.tif")
+                  tiff_path=f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/tif/CN/{year}dummy.tif",
+                  output_path=f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/tif{year}dummy.tif")
         firmnum2=clip_tiff(shapefile_path=r"F:\日度夜间灯光\国界\国.shp",
-                  tiff_path=f"./result/variables/描述性统计/上市公司栅格层面相关性和散点图/tif/{year}firmnum.tif",
-                  output_path=f"./result/variables/描述性统计/上市公司栅格层面相关性和散点图/tif/CN/{year}firmnum.tif")
+                  tiff_path=f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/tif/CN/{year}firmnum.tif",
+                  output_path=f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/tif/{year}firmnum.tif")
         print("开始搜索不缺失的点")
         print(cp.max(firmnum2))
         x,y=cp.where(overwork2!=101)
@@ -98,5 +104,5 @@ if __name__=="__main__":
         print(type(firms))
         dots=pd.DataFrame([over.get(),firms.get()]).T
         dots.columns=['overwork','firms']
-        dots.to_csv(f"./result/variables/描述性统计/上市公司栅格层面相关性和散点图/{year}dots.csv",index=False)
+        dots.to_csv(f"./result/variables/{radius}x{radius}_winsor/描述性统计/工商注册栅格层面相关性和散点图/{year}dots.csv",index=False)
         print(f"用时{time.time()-st}秒")

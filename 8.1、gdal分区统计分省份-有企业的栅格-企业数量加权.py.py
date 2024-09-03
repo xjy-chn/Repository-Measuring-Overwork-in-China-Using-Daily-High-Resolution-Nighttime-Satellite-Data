@@ -26,7 +26,7 @@ def construct_blocks():
 def merge_blocks():
     pass
 if __name__=="__main__":
-    print("准备休眠")
+    # print("准备休眠")
     # time.sleep(9000)
     project_fp = 'F:\popLight\日度灯光分区统计'
     database_name = 'daily_zontal'
@@ -82,11 +82,11 @@ if __name__=="__main__":
                 dummy2=f['data'][day][:]
 
             arcpy.sa.ZonalStatisticsAsTable(r"F:\日度夜间灯光\原始数据\2019年中国各级行政区划\v84\c市_WGCS1984.shp",
-                                            "市代码", arcpy.NumPyArrayToRaster(dummy2, arcpy.Point(70, 10),
+                                            "省代码", arcpy.NumPyArrayToRaster(dummy2, arcpy.Point(70, 10),
                                                                                x_cell_size=0.004166666666666667,
                                                                                y_cell_size=0.004166666666666667,
                                                                                value_to_nodata=200),
-                                            rf"F:\popLight\日度灯光分区统计\daily_zontal.gdb\swfc{year}{day}", "DATA",
+                                            rf"F:\popLight\日度灯光分区统计\daily_zontal.gdb\swfp{year}{day}", "DATA",
                                             "ALL", "CURRENT_SLICE", 90, "AUTO_DETECT", "ARITHMETIC", 360)
             print(f"第{year}年第{day}天加班分区统计已输出完毕")
         # time.sleep(1000)
