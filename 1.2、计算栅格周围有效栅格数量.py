@@ -129,18 +129,28 @@ def cal_median(year, annual_type):
         save(data=median_value, block=key, year=year, description=description)
 
 
-def save_surrounding_valid(data, year, day, description):
+def save_surrounding_valid(data, year, day, description,r,bound=True):
     # print(filename)
-    if not os.path.exists(f'./result/surrounding_valid/{year}'):
-        os.makedirs(f'./result/surrounding_valid/{year}')
-    with h5py.File(f'./result/surrounding_valid/{year}' + '/' + day + '.h5', "w") as f:
-        f.create_group('imformation')
-        f.create_group('data')
-        print(data.dtype)
-        f['data'].create_dataset(name=day, data=data)
-        f['imformation'].create_dataset(name='基本信息', data=description)
+    if bound:
+        if not os.path.exists(f'./result/surrounding_valid/{r}x{r}_winsor/{year}'):
+            os.makedirs(f'./result/surrounding_valid/{r}x{r}_winsor/{year}')
+        with h5py.File(f'./result/surrounding_valid/{r}x{r}_winsor/{year}' + '/' + day + '.h5', "w") as f:
+            f.create_group('imformation')
+            f.create_group('data')
+            print(data.dtype)
+            f['data'].create_dataset(name=day, data=data,compression='gzip')
+            f['imformation'].create_dataset(name='基本信息', data=description)
+    else:
+        if not os.path.exists(f'./result/surrounding_valid/{r}x{r}/{year}'):
+            os.makedirs(f'./result/surrounding_valid/{r}x{r}/{year}')
+        with h5py.File(f'./result/surrounding_valid/{r}x{r}/{year}' + '/' + day + '.h5', "w") as f:
+            f.create_group('imformation')
+            f.create_group('data')
+            print(data.dtype)
+            f['data'].create_dataset(name=day, data=data,compression='gzip')
+            f['imformation'].create_dataset(name='基本信息', data=description)
 
-def cal_surrounding_median_dummy():
+def cal_surrounding_median_dummy(left,right,r):
     end=0
     for key, value in daily_files.items():
         day = key[-3:]
@@ -157,23 +167,31 @@ def cal_surrounding_median_dummy():
                 data = cp.array(read_raw_h5(key + '/' + block),dtype=cp.uint16)
                 ntl[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)] = data
             # print(ntl.shape)
-            padded_ntl = cp.pad(ntl, ((1, 1), (1, 1)), 'constant', constant_values=(65535, 65535))
+            c1 = ntl < left
+            c2 = ntl > right
+            c3 = ntl != 65535
+            ntl = cp.where(c1 & c3, 65535, ntl)
+            ntl = cp.where(c2 & c3, 65535, ntl)
+            print((r-1)//2)
+            padded_ntl = cp.pad(ntl, (((r-1)//2, (r-1)//2), ((r-1)//2, (r-1)//2)), 'constant', constant_values=(65535, 65535))
             # print(padded_ntl.strides)
             # print(padded_ntl.shape)
             surrounding_median = ntl
-            view = cp.lib.stride_tricks.as_strided(padded_ntl, shape=(12000, 16800, 3, 3), strides=(33604, 2, 33604, 2))
+            view = cp.lib.stride_tricks.as_strided(padded_ntl, shape=(12000, 16800, r, r), strides=(33604, 2, 33604, 2))
             # center = view[:, :, 1, 1]
             # # print(center.shape)
-            view = view.reshape((12000, 16800, 9))
+            view = view.reshape((12000, 16800, r**2))
             fill = -cp.ones((12000, 16800), dtype=cp.uint16)
-            view[:, :, 4] = fill
+            view[:, :, (r**2-1)/2] = fill
+
             invalid=cp.count_nonzero(view==65535,axis=2)
             print(invalid.shape)
-            valid=9-invalid
+            valid=r**2-invalid
             valid=valid.astype(cp.uint8)
             print(cp.max(valid))
 
-            save_surrounding_valid(data=valid.get().astype(np.uint8), year=year, day=day, description=f"这是全国{year}年度{day}天的数据")
+            save_surrounding_valid(data=valid.get().astype(np.uint8), year=year, day=day, description=f"这是全国{year}年度{day}天的数据",
+                                   r=r)
             median_values=None
             dummy_surrounding_median=None
             mask=None
@@ -185,14 +203,29 @@ def cal_surrounding_median_dummy():
         print(f"这是全国{year}年度{day}天的数据保存完毕")
         end+=time.time()-st
         print("用时：",end)
+
+def cal_bound(year):
+    with h5py.File(f'./计算正态区间/{year}.h5', 'r') as f:
+        mean = cp.array(f['data']['mean'])
+        variance = cp.array(f['data']['std'])
+        valid = cp.array(f['data']['vaid_grid'])
+        sum = cp.nansum(mean * valid)
+        total_variance = cp.nansum(variance * valid)
+        total_valid = cp.nansum(valid)
+        mean = sum / total_valid
+        std = (total_variance / total_valid) ** 0.5
+        return float(mean - 3 * std), float(mean + 3 * std)
+
 if __name__ == "__main__":
     values_to_exclude = [65535]
     # for year in range(2012,2025):
     #     if year not in [2012,2022,2024]:
     for year in range(2012,2021):
-            day_dirs = search_day_dirs(year)
-            files = [search_h5_files(path) for path in day_dirs]
-            daily_files = dict(zip(day_dirs, files))
-            print(daily_files)
-            print(daily_files.keys())
-            cal_surrounding_median_dummy()
+        l, r = cal_bound(year)
+        left, right = cp.exp(l) - 1, cp.exp(r) - 1
+        day_dirs = search_day_dirs(year)
+        files = [search_h5_files(path) for path in day_dirs]
+        daily_files = dict(zip(day_dirs, files))
+        print(daily_files)
+        print(daily_files.keys())
+        cal_surrounding_median_dummy(left,right,r=3)

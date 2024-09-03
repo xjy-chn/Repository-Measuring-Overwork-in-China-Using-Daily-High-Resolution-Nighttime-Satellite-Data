@@ -89,7 +89,7 @@ def save_annual_overwork(data, year, description, block, type):
     with h5py.File(f'./result/annual_overwork/{year}/{type}' + '/' + filename + '.h5', "w") as f:
         f.create_group('imformation')
         f.create_group('data')
-        f['data'].create_dataset(name=block, data=data)
+        f['data'].create_dataset(name=block, data=data,compression="gzip")
         f['imformation'].create_dataset(name='基本信息', data=description)
 def save_no_missing(data, year, description, block):
     filename = block
@@ -99,21 +99,21 @@ def save_no_missing(data, year, description, block):
     with h5py.File(f'./result/overwork_nomissing/{year}' + '/' + filename + '.h5', "w") as f:
         f.create_group('imformation')
         f.create_group('data')
-        f['data'].create_dataset(name=block, data=data)
+        f['data'].create_dataset(name=block, data=data,compression="gzip")
         f['imformation'].create_dataset(name='基本信息', data=description)
 
 if __name__ == "__main__":
-
+    radius=3
     # -----------------
-    for year in range(2012, 2013):
+    for year in range(2012, 2021):
         types = ["intensity", "dummy"]
         _, holidays, _, works, all = get_days(year)
         values_to_exclude = [65535]
 
         # -----------------------
         blocks = construct_blocks()
-        blocks_fp = sorted(os.listdir(f'./result/daily_overwork/{year}'))
-        blocks_fp = sorted([f'./result/daily_overwork/{year}' + '/' + block for block in blocks_fp])
+        blocks_fp = sorted(os.listdir(f'./result/daily_overwork/{radius}x{radius}_winsor/{year}'))
+        blocks_fp = sorted([f'./result/daily_overwork/{radius}x{radius}_winsor/{year}' + '/' + block for block in blocks_fp])
 
         fps = dict()
         for i in range(len(blocks)):
@@ -129,8 +129,8 @@ if __name__ == "__main__":
 
         for block, value in fps.items():
             # print(block)
-            days_inten_fp = [f'./result/daily_overwork/{year}/{block}/intensity' + '/' + fp + '.h5' for fp in days]
-            days_dummy_fp = [f'./result/daily_overwork/{year}/{block}/dummy' + '/' + fp + '.h5' for fp in days]
+            days_inten_fp = [f'./result/daily_overwork/{radius}x{radius}_winsor/{year}/{block}/intensity' + '/' + fp + '.h5' for fp in days]
+            days_dummy_fp = [f'./result/daily_overwork/{radius}x{radius}_winsor/{year}/{block}/dummy' + '/' + fp + '.h5' for fp in days]
             fps[block]['intensity'] = days_inten_fp
             fps[block]['dummy'] = days_dummy_fp
         for block, value in fps.items():
@@ -150,9 +150,9 @@ if __name__ == "__main__":
             intensity = ma.median(ma.array(data, mask=mask), axis=0)
 
             #导入缺失天数情况
-            with h5py.File(f'result/overwork_nomissing/{year}/works/{block}.h5') as f:
+            with h5py.File(f'./result/overwork_nomissing/winsor/{year}/works/{block}.h5') as f:
                 works_no_missing=np.array(f['data'][block][:],dtype=np.uint16)
-            with h5py.File(f'result/overwork_nomissing/{year}/holidays/{block}.h5') as f:
+            with h5py.File(f'./result/overwork_nomissing/winsor/{year}/holidays/{block}.h5') as f:
                 holidays_no_missing = np.array(f['data'][block][:],dtype=np.uint16)
             intensity = np.array(intensity,dtype=np.uint32)
             intensity = np.round(10 * intensity)

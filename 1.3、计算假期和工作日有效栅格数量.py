@@ -141,26 +141,40 @@ def cal_median(year, annual_type):
         save(data=median_value, block=key, year=year, description=description)
 
 
-def save_no_missing(data, year, block, description,type):
+def save_no_missing(data, year, block, description,type,bound=True):
     # print(filename)
-    if not os.path.exists(f'./result/overwork_nomissing/{year}/{type}'):
-        os.makedirs(f'./result/overwork_nomissing/{year}/{type}')
-    with h5py.File(f'./result/overwork_nomissing/{year}/{type}' + '/' + block + '.h5', "w") as f:
-        f.create_group('imformation')
-        f.create_group('data')
-        f['data'].create_dataset(name=block, data=data)
-        f['imformation'].create_dataset(name='基本信息', data=description)
+    if bound:
+        if not os.path.exists(f'./result/overwork_nomissing/winsor/{year}/{type}'):
+            os.makedirs(f'./result/overwork_nomissing/winsor/{year}/{type}')
+        with h5py.File(f'./result/overwork_nomissing/winsor/{year}/{type}' + '/' + block + '.h5', "w") as f:
+            f.create_group('imformation')
+            f.create_group('data')
+            f['data'].create_dataset(name=block, data=data)
+            f['imformation'].create_dataset(name='基本信息', data=description)
+    else:
+        if not os.path.exists(f'./result/overwork_nomissing/{year}/{type}'):
+            os.makedirs(f'./result/overwork_nomissing/{year}/{type}')
+        with h5py.File(f'./result/overwork_nomissing/{year}/{type}' + '/' + block + '.h5', "w") as f:
+            f.create_group('imformation')
+            f.create_group('data')
+            f['data'].create_dataset(name=block, data=data)
+            f['imformation'].create_dataset(name='基本信息', data=description)
 
 
-def cal_nomissing_days(block_file_fp,type):
+def cal_nomissing_days(block_file_fp,type,left,right):
     missing=cp.ones((len(block_file_fp),2400,2400),dtype=cp.uint16)
     print(missing.shape)
     print(len(block_file_fp))
     for i in range(len(block_file_fp)):
         data=read_raw_h5(block_file_fp[i])
+        c1 = data < left
+        c2 = data > right
+        c3 = data != 65535
+        data = cp.where(c1 & c3, 65535, data)
+        data = cp.where(c2 & c3, 65535, data)
         data=cp.where(data!=65535,0,data)
         data=cp.where(data==65535,1,data)
-        data=data.astype(cp.bool)
+        data=data.astype(cp.uint8)
         missing[i]=data
     # x, y, z = cp.where(missing==0)
     missing=cp.sum(missing,axis=0)
@@ -174,13 +188,27 @@ def cal_nomissing_days(block_file_fp,type):
         # print(key + '/' + block)
         # data = read_raw_h5(key + '/' + block)
 
+def cal_bound(year):
+    with h5py.File(f'./计算正态区间/{year}.h5', 'r') as f:
+        mean = cp.array(f['data']['mean'])
+        variance = cp.array(f['data']['std'])
+        valid = cp.array(f['data']['vaid_grid'])
+        sum = cp.nansum(mean * valid)
+        total_variance = cp.nansum(variance * valid)
+        total_valid = cp.nansum(valid)
+        mean = sum / total_valid
+        std = (total_variance / total_valid) ** 0.5
+        return float(mean - 3 * std), float(mean + 3 * std)
+
 
 if __name__ == "__main__":
     values_to_exclude = [65535]
     blocks = construct_blocks()
     # for year in range(2012,2025):
     #     if year not in [2012,2022,2024]:
-    for year in range(2012, 2013):
+    for year in range(2012, 2021):
+        l, r = cal_bound(year)
+        left, right = cp.exp(l) - 1, cp.exp(r) - 1
         annual_holidays = dict()
         annual_works = dict()
         day_dirs = search_day_dirs(year)
@@ -194,7 +222,7 @@ if __name__ == "__main__":
         # print(works_blocks.keys())
         for key, value in holidays_blocks.items():
             print(key)
-            nomissing_holidays = cal_nomissing_days(value, type=holidays)
+            nomissing_holidays = cal_nomissing_days(value, type=holidays,left=left,right=right)
             # nomissing_holidays=nomissing_holidays<5
             nomissing_holidays = nomissing_holidays.astype(cp.uint8)
             if year==2012:
@@ -202,20 +230,19 @@ if __name__ == "__main__":
             save_no_missing(data=nomissing_holidays.get(), year=year, block=key,
                             description=f"这是节假日有原始数据的天数，节假日总天数为{len(holidays)}",
                             type="holidays")
-        # nomissing_holidays=None
-        # for key, value in holidays_blocks.items():
-        #     print(key)
-        #
-        #     nomissing_works=cal_nomissing_days(value,type=works)
-        #     # nomissing_works=nomissing_works>100
-        #     if cp.max(nomissing_works)<=255:
-        #         nomissing_works=nomissing_works.astype(cp.uint8)
-        #     else:
-        #         nomissing_works=nomissing_works.astype(cp.uint16)
-        #     save_no_missing(data=nomissing_works.get(),year=year,block=key,
-        #                     description=f"这是工作日有原始数据的天数，节假日总天数为{len(works)}",
-        #                     type="works")
-        # nomissing_works=None
-        #
+        nomissing_holidays=None
+        for key, value in holidays_blocks.items():
+            print(key)
+            nomissing_works=cal_nomissing_days(value,type=works,left=left,right=right)
+            # nomissing_works=nomissing_works>100
+            if cp.max(nomissing_works)<=255:
+                nomissing_works=nomissing_works.astype(cp.uint8)
+            else:
+                nomissing_works=nomissing_works.astype(cp.uint16)
+            save_no_missing(data=nomissing_works.get(),year=year,block=key,
+                            description=f"这是工作日有原始数据的天数，节假日总天数为{len(works)}",
+                            type="works")
+        nomissing_works=None
+
 
         # cal_surrounding_median_dummy()

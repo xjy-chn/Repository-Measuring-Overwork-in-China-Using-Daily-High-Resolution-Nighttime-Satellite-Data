@@ -89,7 +89,7 @@ def save_annual_overwork(data, year, description, block, type):
     with h5py.File(f'./result/annual_overwork/{year}/{type}' + '/' + filename + '.h5', "w") as f:
         f.create_group('imformation')
         f.create_group('data')
-        f['data'].create_dataset(name=block, data=data)
+        f['data'].create_dataset(name=block, data=data,compression="gzip")
         f['imformation'].create_dataset(name='基本信息', data=description)
 def save_no_missing(data, year, description, block):
     filename = block
@@ -99,21 +99,36 @@ def save_no_missing(data, year, description, block):
     with h5py.File(f'./result/overwork_nomissing/{year}' + '/' + filename + '.h5', "w") as f:
         f.create_group('imformation')
         f.create_group('data')
-        f['data'].create_dataset(name=block, data=data)
+        f['data'].create_dataset(name=block, data=data,compression="gzip")
         f['imformation'].create_dataset(name='基本信息', data=description)
+def cal_bound(year):
+    with h5py.File(f'./计算正态区间/{year}.h5', 'r') as f:
+        mean = cp.array(f['data']['mean'])
+        variance = cp.array(f['data']['std'])
+        valid = cp.array(f['data']['vaid_grid'])
+        sum = cp.nansum(mean * valid)
+        total_variance = cp.nansum(variance * valid)
+        total_valid = cp.nansum(valid)
+        mean = sum / total_valid
+        std = (total_variance / total_valid) ** 0.5
+        return float(mean - 3 * std), float(mean + 3 * std)
+
 
 if __name__ == "__main__":
 
-    # -----------------
-    for year in range(2012, 2013):
+    # -----------------3、拼接日度数据计算年度指标dummy.py
+    radius=3
+    for year in range(2012, 2021):
+        l, r = cal_bound(year)
+        left, right = cp.exp(l) - 1, cp.exp(r) - 1
         types = ["intensity", "dummy"]
         _, holidays, _, works, all = get_days(year)
         values_to_exclude = [65535]
 
         # -----------------------
         blocks = construct_blocks()
-        blocks_fp = sorted(os.listdir(f'./result/daily_overwork/{year}'))
-        blocks_fp = sorted([f'./result/daily_overwork/{year}' + '/' + block for block in blocks_fp])
+        blocks_fp = sorted(os.listdir(f'./result/daily_overwork/{radius}x{radius}_winsor/{year}'))
+        blocks_fp = sorted([f'./result/daily_overwork/{radius}x{radius}_winsor/{year}' + '/' + block for block in blocks_fp])
 
         fps = dict()
         for i in range(len(blocks)):
@@ -129,12 +144,13 @@ if __name__ == "__main__":
 
         for block, value in fps.items():
             # print(block)
-            days_inten_fp = [f'./result/daily_overwork/{year}/{block}/intensity' + '/' + fp + '.h5' for fp in days]
-            days_dummy_fp = [f'./result/daily_overwork/{year}/{block}/dummy' + '/' + fp + '.h5' for fp in days]
+            days_inten_fp = [f'./result/daily_overwork/{radius}x{radius}_winsor/{year}/{block}/intensity' + '/' + fp + '.h5' for fp in days]
+            days_dummy_fp = [f'./result/daily_overwork/{radius}x{radius}_winsor/{year}/{block}/dummy' + '/' + fp + '.h5' for fp in days]
             fps[block]['intensity'] = days_inten_fp
             fps[block]['dummy'] = days_dummy_fp
         for block, value in fps.items():
-            # print(value)
+            # print(block,value['dummy'])
+            # time.sleep(100)
             st = time.time()
             num = len(value['dummy'])
             data = 2*cp.ones((num, 2400, 2400), dtype=cp.uint8)
@@ -145,9 +161,9 @@ if __name__ == "__main__":
             overwork_days = cp.count_nonzero(data==1, axis=0)
             ratio = overwork_days / no_missing
             #导入缺失天数情况
-            with h5py.File(f'result/overwork_nomissing/{year}/works/{block}.h5') as f:
+            with h5py.File(f'result/overwork_nomissing/winsor/{year}/works/{block}.h5') as f:
                 works_no_missing=cp.array(f['data'][block][:],dtype=cp.uint16)
-            with h5py.File(f'result/overwork_nomissing/{year}/holidays/{block}.h5') as f:
+            with h5py.File(f'result/overwork_nomissing/winsor/{year}/holidays/{block}.h5') as f:
                 holidays_no_missing = cp.array(f['data'][block][:],dtype=cp.uint16)
 
             # 增加导出非工作日no_missing数据的代码

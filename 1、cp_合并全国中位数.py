@@ -16,19 +16,20 @@ def merge_surrounding_median(daily_files):
         with h5py.File(file, 'r') as f:
             data = f['data'][block][:]
         data2[2400 * (v - 3):2400 * (v - 2), 2400 * (h - 25):2400 * (h - 24)] = data
-    with h5py.File(f'./result/surrounding_median/national/{year}/{file[-13:-10]}.h5', 'w') as f:
+    with h5py.File(f'./result/surrounding_median/national/{r}x{r}_winsored/{year}/{file[-13:-10]}.h5', 'w') as f:
         f.create_group('data')
-        f['data'].create_dataset(name=file[-13:-10], data=data2)
+        f['data'].create_dataset(name=file[-13:-10], data=data2, compression="gzip")
 
 
 if __name__ == "__main__":
-    for year in range(2013, 2021):
-        days = os.listdir(f'./result/surrounding_median/{year}')
-        if not os.path.exists(f'./result/surrounding_median/national/{year}'):
-            os.makedirs(f'./result/surrounding_median/national/{year}')
+    r=3
+    for year in range(2012, 2021):
+        days = os.listdir(f'./result/surrounding_median/{r}x{r}_winsored/{year}')
+        if not os.path.exists(f'./result/surrounding_median/national/{r}x{r}_winsored/{year}'):
+            os.makedirs(f'./result/surrounding_median/national/{r}x{r}_winsored/{year}')
         for day in days:
-            daily_files = os.listdir(f'./result/surrounding_median/{year}/{day}')
-            daily_files = [f'./result/surrounding_median/{year}/{day}' + '/' + f for f in daily_files]
+            daily_files = os.listdir(f'./result/surrounding_median/{r}x{r}_winsored/{year}/{day}')
+            daily_files = [f'./result/surrounding_median/{r}x{r}_winsored/{year}/{day}' + '/' + f for f in daily_files]
             print(daily_files[0][-9:-3], daily_files[0][-13:-10])
             merge_surrounding_median(daily_files)
 
